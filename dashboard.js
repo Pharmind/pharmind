@@ -378,14 +378,9 @@ function gerarRelatorioPDF() {
             textColor: 255,
             fontStyle: 'bold',
         },
-        margin: { top: 50 }, // Ensure there's space for headers on new pages
+        margin: { top: 50, bottom: 30 },
         didDrawPage: function(data) {
             // Header on each page
-            doc.setFontSize(10);
-            doc.setTextColor(100);
-            doc.text('Relatório de Controle de Estoque Hospitalar', doc.internal.pageSize.getWidth() / 2, 15, {
-                align: 'center'
-            });
         },
         didDrawCell: (data) => {
             // Add color to status cells
@@ -438,36 +433,55 @@ function gerarRelatorioPDF() {
     doc.text(`Total de itens: ${totalItems}`, 14, yPos); yPos += 8;
     doc.text(`Itens em estado Crítico: ${criticoItems} (${Math.round(criticoItems/totalItems*100)}%)`, 14, yPos); yPos += 8;
     doc.text(`Itens em estado de Alerta: ${alertaItems} (${Math.round(alertaItems/totalItems*100)}%)`, 14, yPos); yPos += 8;
-    doc.text(`Itens em estado Normal: ${normalItems} (${Math.round(normalItems/totalItems*100)}%)`, 14, yPos); yPos += 15;
+    doc.text(`Itens em estado Normal: ${normalItems} (${Math.round(normalItems/totalItems*100)}%)`, 14, yPos);
     
-    // Add pie chart for status distribution
+    // Function to create chart title and explanation
+    function addChartTitleAndExplanation(title, explanation1, explanation2 = null, yPosition = 30) {
+        doc.setFontSize(16);
+        doc.setTextColor(0, 51, 153);
+        doc.text(title, 14, yPosition);
+        
+        doc.setFontSize(11);
+        doc.setTextColor(60, 60, 60);
+        doc.text(explanation1, 14, yPosition + 10);
+        if (explanation2) {
+            doc.text(explanation2, 14, yPosition + 16);
+        }
+    }
+    
+    // GRÁFICO 1: DISTRIBUIÇÃO DE STATUS
     doc.addPage();
-    doc.setFontSize(16);
-    doc.setTextColor(0, 51, 153);
-    doc.text('Análise Gráfica do Estoque', 14, 20);
+    addChartTitleAndExplanation(
+        'Análise Gráfica do Estoque: Distribuição de Status', 
+        'Este gráfico demonstra a proporção de itens em cada categoria de status (Crítico, Alerta e Normal),',
+        'permitindo uma visualização rápida da saúde geral do estoque hospitalar.'
+    );
     
-    // GRÁFICO 1: DISTRIBUIÇÃO DE STATUS - EXPLICAÇÃO
-    doc.setFontSize(11);
-    doc.setTextColor(60, 60, 60);
-    doc.text('Este gráfico demonstra a proporção de itens em cada categoria de status (Crítico, Alerta e Normal),', 14, 30);
-    doc.text('permitindo uma visualização rápida da saúde geral do estoque hospitalar.', 14, 36);
+    // Create a canvas for the pie chart with modern styling
+    const canvasPie = document.createElement('canvas');
+    canvasPie.width = 1000;
+    canvasPie.height = 800;
+    document.body.appendChild(canvasPie);
     
-    // Create a canvas for the pie chart (INCREASED SIZE)
-    const canvas = document.createElement('canvas');
-    canvas.width = 500;  // Increased from 400
-    canvas.height = 300; // Increased from 200
-    document.body.appendChild(canvas);
-    
-    // Create pie chart
-    new Chart(canvas.getContext('2d'), {
+    // Create pie chart with modern styling
+    new Chart(canvasPie.getContext('2d'), {
         type: 'pie',
         data: {
             labels: ['Crítico', 'Alerta', 'Normal'],
             datasets: [{
                 data: [criticoItems, alertaItems, normalItems],
-                backgroundColor: ['rgba(255, 99, 132, 0.8)', 'rgba(255, 205, 86, 0.8)', 'rgba(75, 192, 192, 0.8)'],
-                borderColor: ['rgb(255, 99, 132)', 'rgb(255, 205, 86)', 'rgb(75, 192, 192)'],
-                borderWidth: 1
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.9)',
+                    'rgba(255, 205, 86, 0.9)',
+                    'rgba(75, 192, 192, 0.9)'
+                ],
+                borderColor: [
+                    'rgba(255, 99, 132, 1)',
+                    'rgba(255, 205, 86, 1)', 
+                    'rgba(75, 192, 192, 1)'
+                ],
+                borderWidth: 2,
+                hoverOffset: 10
             }]
         },
         options: {
@@ -476,58 +490,91 @@ function gerarRelatorioPDF() {
                 legend: {
                     position: 'right',
                     labels: {
-                        boxWidth: 15,
-                        font: { size: 12 }
+                        boxWidth: 20,
+                        padding: 15,
+                        font: { 
+                            size: 14,
+                            weight: 'bold'
+                        }
                     }
                 },
                 title: {
                     display: true,
                     text: 'Distribuição de Status dos Itens',
-                    font: { size: 14, weight: 'bold' }
+                    font: { 
+                        size: 18, 
+                        weight: 'bold',
+                        family: 'Arial'
+                    },
+                    padding: {
+                        top: 10,
+                        bottom: 30
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    titleColor: '#000',
+                    bodyColor: '#000',
+                    borderColor: '#ddd',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: true,
+                    boxWidth: 10,
+                    boxHeight: 10,
+                    usePointStyle: true
                 }
             }
         }
     });
     
-    // Add the pie chart to the PDF (ADJUSTED DIMENSIONS)
+    // Add the chart to PDF, centered on the page with proper margins
     setTimeout(() => {
-        doc.addImage(canvas.toDataURL(), 'PNG', 15, 42, 180, 90);
+        const imgData = canvasPie.toDataURL('image/png');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const imgWidth = pageWidth - 40; // 20px margin on each side
+        const imgHeight = imgWidth * 0.7; // Maintain aspect ratio
+        const imgX = (pageWidth - imgWidth) / 2;
+        const imgY = 50; // Start below the title
         
-        // GRÁFICO 2: TOP 10 ITEMS CRÍTICOS - EXPLICAÇÃO
-        doc.setFontSize(16);
-        doc.setTextColor(0, 51, 153);
-        doc.text('Top 10 Itens Críticos', 14, 145);
+        doc.addImage(imgData, 'PNG', imgX, imgY, imgWidth, imgHeight);
         
-        doc.setFontSize(11);
-        doc.setTextColor(60, 60, 60);
-        doc.text('Este gráfico apresenta os 10 itens com menor disponibilidade em dias de estoque.', 14, 155);
-        doc.text('Priorize a reposição destes itens para evitar rupturas no atendimento aos pacientes.', 14, 161);
+        // GRÁFICO 2: TOP 10 ITEMS CRÍTICOS
+        doc.addPage();
+        addChartTitleAndExplanation(
+            'Análise de Itens Críticos: Top 10', 
+            'Este gráfico apresenta os 10 itens com menor disponibilidade em dias de estoque.',
+            'Priorize a reposição destes itens para evitar rupturas no atendimento aos pacientes.'
+        );
         
-        // Create a canvas for the bar chart (INCREASED SIZE)
+        // Create horizontal bar chart for critical items
         const canvasBar = document.createElement('canvas');
-        canvasBar.width = 600;  // Increased from 500
-        canvasBar.height = 350; // Increased from 250
+        canvasBar.width = 1200;
+        canvasBar.height = 800;
         document.body.appendChild(canvasBar);
         
-        // Create top 10 items by remaining days bar chart
+        // Get top 10 critical items sorted by availability
         const top10Critical = [...currentFilteredItems]
             .sort((a, b) => Math.floor(a.estoque / a.consumoDiario) - Math.floor(b.estoque / b.consumoDiario))
             .slice(0, 10);
-            
-        new Chart(canvasBar.getContext('2d'), {
+        
+        const ctx = canvasBar.getContext('2d');
+        const barGradient = ctx.createLinearGradient(0, 0, 800, 0);
+        barGradient.addColorStop(0, 'rgba(255, 99, 132, 0.9)');
+        barGradient.addColorStop(0.5, 'rgba(255, 99, 132, 0.7)');
+        barGradient.addColorStop(1, 'rgba(255, 99, 132, 0.5)');
+        
+        new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: top10Critical.map(item => item.nome.length > 15 ? item.nome.substring(0, 15) + '...' : item.nome),
+                labels: top10Critical.map(item => item.nome.length > 25 ? item.nome.substring(0, 25) + '...' : item.nome),
                 datasets: [{
                     label: 'Dias de Estoque Restantes',
                     data: top10Critical.map(item => Math.floor(item.estoque / item.consumoDiario)),
-                    backgroundColor: top10Critical.map(item => {
-                        const dias = Math.floor(item.estoque / item.consumoDiario);
-                        if (dias <= 15) return 'rgba(255, 99, 132, 0.7)';
-                        if (dias <= 30) return 'rgba(255, 205, 86, 0.7)';
-                        return 'rgba(75, 192, 192, 0.7)';
-                    }),
-                    borderWidth: 1
+                    backgroundColor: barGradient,
+                    borderRadius: 6,
+                    barPercentage: 0.7,
+                    borderWidth: 0
                 }]
             },
             options: {
@@ -535,12 +582,40 @@ function gerarRelatorioPDF() {
                 indexAxis: 'y',
                 plugins: {
                     legend: {
-                        display: false
+                        labels: {
+                            font: { 
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        }
                     },
                     title: {
                         display: true,
                         text: 'Top 10 Itens Críticos (por dias de estoque)',
-                        font: { size: 14, weight: 'bold' }
+                        font: { 
+                            size: 18, 
+                            weight: 'bold',
+                            family: 'Arial'
+                        },
+                        padding: {
+                            top: 10,
+                            bottom: 30
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        titleColor: '#000',
+                        bodyColor: '#000',
+                        bodyFont: {
+                            size: 14
+                        },
+                        borderColor: '#ddd',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.raw} dias disponíveis`;
+                            }
+                        }
                     }
                 },
                 scales: {
@@ -548,31 +623,53 @@ function gerarRelatorioPDF() {
                         beginAtZero: true,
                         title: {
                             display: true,
-                            text: 'Dias Disponíveis'
+                            text: 'Dias Disponíveis',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            display: true,
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        }
+                    },
+                    y: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 12
+                            }
                         }
                     }
                 }
             }
         });
         
-        // Add the bar chart to the PDF (ADJUSTED DIMENSIONS)
+        // Add chart to PDF
         setTimeout(() => {
-            doc.addImage(canvasBar.toDataURL(), 'PNG', 10, 167, 190, 105);
+            const imgData = canvasBar.toDataURL('image/png');
+            const imgWidth = pageWidth - 40;
+            const imgHeight = imgWidth * 0.7;
+            const imgX = (pageWidth - imgWidth) / 2;
+            const imgY = 50;
             
-            // GRÁFICO 3: DISTRIBUIÇÃO POR CATEGORIA - EXPLICAÇÃO
-            doc.setFontSize(16);
-            doc.setTextColor(0, 51, 153);
-            doc.text('Análise por Categoria', 14, 285);
+            doc.addImage(imgData, 'PNG', imgX, imgY, imgWidth, imgHeight);
             
-            doc.setFontSize(11);
-            doc.setTextColor(60, 60, 60);
-            doc.text('Este gráfico mostra a distribuição dos itens por categoria, permitindo uma', 14, 295);
-            doc.text('visualização da diversidade do inventário e a proporção de cada tipo de item no estoque.', 14, 301);
+            // GRÁFICO 3: DISTRIBUIÇÃO POR CATEGORIA
+            doc.addPage();
+            addChartTitleAndExplanation(
+                'Análise por Categoria de Produtos', 
+                'Este gráfico mostra a distribuição dos itens por categoria, permitindo uma',
+                'visualização da diversidade do inventário e a proporção de cada tipo de item no estoque.'
+            );
             
-            // Create a canvas for the doughnut chart (INCREASED SIZE)
+            // Create doughnut chart for category distribution
             const canvasDoughnut = document.createElement('canvas');
-            canvasDoughnut.width = 500;  // Increased from 400
-            canvasDoughnut.height = 300; // Increased from 200
+            canvasDoughnut.width = 1000;
+            canvasDoughnut.height = 800;
             document.body.appendChild(canvasDoughnut);
             
             // Count items by category
@@ -582,7 +679,7 @@ function gerarRelatorioPDF() {
                 categoryCounts[categoryKey] = (categoryCounts[categoryKey] || 0) + 1;
             });
             
-            // Create doughnut chart for category distribution
+            // Create modern doughnut chart
             new Chart(canvasDoughnut.getContext('2d'), {
                 type: 'doughnut',
                 data: {
@@ -590,109 +687,223 @@ function gerarRelatorioPDF() {
                     datasets: [{
                         data: Object.values(categoryCounts),
                         backgroundColor: [
-                            'rgba(54, 162, 235, 0.7)',
-                            'rgba(255, 99, 132, 0.7)',
-                            'rgba(255, 205, 86, 0.7)',
-                            'rgba(75, 192, 192, 0.7)',
-                            'rgba(153, 102, 255, 0.7)',
-                            'rgba(255, 159, 64, 0.7)',
-                            'rgba(199, 199, 199, 0.7)'
+                            'rgba(54, 162, 235, 0.8)',
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(255, 205, 86, 0.8)',
+                            'rgba(75, 192, 192, 0.8)',
+                            'rgba(153, 102, 255, 0.8)',
+                            'rgba(255, 159, 64, 0.8)',
+                            'rgba(109, 99, 255, 0.8)'
                         ],
-                        borderWidth: 1
+                        borderColor: [
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(255, 205, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)',
+                            'rgba(109, 99, 255, 1)'
+                        ],
+                        borderWidth: 2,
+                        hoverOffset: 15,
+                        borderRadius: 3,
+                        spacing: 3
                     }]
                 },
                 options: {
                     responsive: false,
+                    cutout: '50%',
                     plugins: {
                         legend: {
                             position: 'right',
                             labels: {
-                                boxWidth: 15,
-                                font: { size: 10 }
+                                padding: 15,
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                font: { 
+                                    size: 14
+                                }
                             }
                         },
                         title: {
                             display: true,
                             text: 'Distribuição de Itens por Categoria',
-                            font: { size: 14, weight: 'bold' }
+                            font: { 
+                                size: 18, 
+                                weight: 'bold',
+                                family: 'Arial'
+                            },
+                            padding: {
+                                top: 10,
+                                bottom: 30
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            titleColor: '#000',
+                            bodyColor: '#000',
+                            borderColor: '#ddd',
+                            borderWidth: 1,
+                            usePointStyle: true,
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw;
+                                    const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${label}: ${value} itens (${percentage}%)`;
+                                }
+                            }
                         }
                     }
                 }
             });
             
-            // Add the doughnut chart to the PDF (ADJUSTED DIMENSIONS)
+            // Add chart to PDF
             setTimeout(() => {
-                doc.addImage(canvasDoughnut.toDataURL(), 'PNG', 15, 42, 180, 90);
+                const imgData = canvasDoughnut.toDataURL('image/png');
+                const imgWidth = pageWidth - 40;
+                const imgHeight = imgWidth * 0.7;
+                const imgX = (pageWidth - imgWidth) / 2;
+                const imgY = 50;
                 
-                // GRÁFICO 4: TOP 5 CONSUMO - EXPLICAÇÃO
-                doc.setFontSize(16);
-                doc.setTextColor(0, 51, 153);
-                doc.text('Análise de Consumo', 14, 395);
+                doc.addImage(imgData, 'PNG', imgX, imgY, imgWidth, imgHeight);
                 
-                doc.setFontSize(11);
-                doc.setTextColor(60, 60, 60);
-                doc.text('Este gráfico compara o consumo diário e o estoque atual dos 5 itens mais utilizados.', 14, 405);
-                doc.text('Itens com alto consumo e baixo estoque precisam de atenção especial no planejamento de compras.', 14, 411);
+                // GRÁFICO 4: TOP 5 CONSUMO
+                doc.addPage();
+                addChartTitleAndExplanation(
+                    'Análise de Consumo vs Estoque', 
+                    'Este gráfico compara o consumo diário e o estoque atual dos 5 itens mais utilizados.',
+                    'Itens com alto consumo e baixo estoque precisam de atenção especial no planejamento de compras.'
+                );
                 
-                // Create line chart for consumption pattern (INCREASED SIZE)
-                const canvasLine = document.createElement('canvas');
-                canvasLine.width = 600;  // Increased from 500
-                canvasLine.height = 350; // Increased from 250
-                document.body.appendChild(canvasLine);
+                // Create grouped bar chart for consumption analysis
+                const canvasBar2 = document.createElement('canvas');
+                canvasBar2.width = 1200;
+                canvasBar2.height = 800;
+                document.body.appendChild(canvasBar2);
                 
                 // Get top 5 items with highest consumption
                 const top5Consumption = [...currentFilteredItems]
                     .sort((a, b) => b.consumoDiario - a.consumoDiario)
                     .slice(0, 5);
                 
-                new Chart(canvasLine.getContext('2d'), {
+                const ctx2 = canvasBar2.getContext('2d');
+                const consumptionGradient = ctx2.createLinearGradient(0, 0, 0, 400);
+                consumptionGradient.addColorStop(0, 'rgba(54, 162, 235, 0.9)');
+                consumptionGradient.addColorStop(1, 'rgba(54, 162, 235, 0.5)');
+                
+                const stockGradient = ctx2.createLinearGradient(0, 0, 0, 400);
+                stockGradient.addColorStop(0, 'rgba(75, 192, 192, 0.9)');
+                stockGradient.addColorStop(1, 'rgba(75, 192, 192, 0.5)');
+                
+                new Chart(ctx2, {
                     type: 'bar',
                     data: {
-                        labels: top5Consumption.map(item => item.nome.length > 12 ? item.nome.substring(0, 12) + '...' : item.nome),
+                        labels: top5Consumption.map(item => item.nome.length > 20 ? item.nome.substring(0, 20) + '...' : item.nome),
                         datasets: [{
                             label: 'Consumo Diário',
                             data: top5Consumption.map(item => item.consumoDiario),
-                            backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                            borderColor: 'rgb(54, 162, 235)',
-                            borderWidth: 1
+                            backgroundColor: consumptionGradient,
+                            borderRadius: 6,
+                            barPercentage: 0.6,
+                            categoryPercentage: 0.4,
+                            order: 1
                         }, {
                             label: 'Estoque Atual',
                             data: top5Consumption.map(item => item.estoque),
-                            backgroundColor: 'rgba(75, 192, 192, 0.7)',
-                            borderColor: 'rgb(75, 192, 192)',
-                            borderWidth: 1
+                            backgroundColor: stockGradient,
+                            borderRadius: 6,
+                            barPercentage: 0.6,
+                            categoryPercentage: 0.4,
+                            order: 2
                         }]
                     },
                     options: {
                         responsive: false,
+                        maintainAspectRatio: false,
                         plugins: {
+                            legend: {
+                                position: 'top',
+                                align: 'center',
+                                labels: {
+                                    padding: 20,
+                                    usePointStyle: true,
+                                    pointStyle: 'rectRounded',
+                                    font: { 
+                                        size: 14,
+                                        weight: 'bold'
+                                    }
+                                }
+                            },
                             title: {
                                 display: true,
                                 text: 'Top 5 Itens com Maior Consumo Diário',
-                                font: { size: 14, weight: 'bold' }
+                                font: { 
+                                    size: 18, 
+                                    weight: 'bold',
+                                    family: 'Arial'
+                                },
+                                padding: {
+                                    top: 10,
+                                    bottom: 30
+                                }
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                                titleColor: '#000',
+                                bodyColor: '#000',
+                                borderColor: '#ddd',
+                                borderWidth: 1
                             }
                         },
                         scales: {
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 12,
+                                        weight: 'bold'
+                                    }
+                                }
+                            },
                             y: {
                                 beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                },
                                 title: {
                                     display: true,
-                                    text: 'Quantidade'
+                                    text: 'Quantidade',
+                                    font: {
+                                        size: 14,
+                                        weight: 'bold'
+                                    }
                                 }
                             }
                         }
                     }
                 });
                 
-                // Add the line chart to the PDF (ADJUSTED DIMENSIONS)
+                // Add chart to PDF
                 setTimeout(() => {
-                    doc.addImage(canvasLine.toDataURL(), 'PNG', 10, 417, 190, 105);
+                    const imgData = canvasBar2.toDataURL('image/png');
+                    const imgWidth = pageWidth - 40;
+                    const imgHeight = imgWidth * 0.7;
+                    const imgX = (pageWidth - imgWidth) / 2;
+                    const imgY = 50;
+                    
+                    doc.addImage(imgData, 'PNG', imgX, imgY, imgWidth, imgHeight);
                     
                     // Remove temporary canvases
-                    document.body.removeChild(canvas);
+                    document.body.removeChild(canvasPie);
                     document.body.removeChild(canvasBar);
                     document.body.removeChild(canvasDoughnut);
-                    document.body.removeChild(canvasLine);
+                    document.body.removeChild(canvasBar2);
                     
                     // Add recommendations page
                     doc.addPage();
@@ -729,6 +940,8 @@ function gerarRelatorioPDF() {
                     yPos += 20;
                     
                     // Add purchase recommendations table
+                    yPos = checkPageBreak(yPos, 100, doc); // Check if we need a page break
+                    
                     doc.setFontSize(16);
                     doc.setTextColor(0, 51, 153);
                     doc.text('Sugestão de Compra (para estoque mínimo de 45 dias)', 14, yPos);
@@ -739,12 +952,6 @@ function gerarRelatorioPDF() {
                     doc.text('A tabela abaixo apresenta uma sugestão de quantidades a serem adquiridas para garantir', 14, yPos);
                     doc.text('uma cobertura de estoque de pelo menos 45 dias para todos os itens.', 14, yPos + 6);
                     yPos += 20;
-                    
-                    // Check if we need a new page for the purchase recommendations
-                    if (yPos > doc.internal.pageSize.getHeight() - 100) {
-                        doc.addPage();
-                        yPos = 20; // Reset position for the new page
-                    }
                     
                     // Filter items that need replenishment (less than 45 days of stock)
                     const itemsToReplenish = currentFilteredItems.filter(item => {
@@ -795,13 +1002,13 @@ function gerarRelatorioPDF() {
                         doc.text('Todos os itens possuem estoque adequado para mais de 45 dias.', 14, yPos);
                     }
                     
-                    // Footer on each page
+                    // Add footer to each page
                     const pageCount = doc.internal.getNumberOfPages();
                     for (let i = 1; i <= pageCount; i++) {
                         doc.setPage(i);
                         doc.setFontSize(10);
                         doc.setTextColor(100);
-                        doc.text(`Página ${i} de ${pageCount} - Controle de Estoque Hospitalar - Farmacêutico Fernando Carneiro`, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 10, {
+                        doc.text(`Página ${i} de ${pageCount} - Controle de Estoque Hospitalar - Farmacêutico Fernando Carneiro`, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 20, {
                             align: 'center'
                         });
                     }
@@ -809,11 +1016,57 @@ function gerarRelatorioPDF() {
                     // Save PDF
                     const fileName = `relatorio-estoque-${dataInicio || 'geral'}-a-${dataFim || 'geral'}.pdf`;
                     doc.save(fileName);
-                }, 200);
-            }, 200);
-        }, 200);
-    }, 200);
+                }, 300);
+            }, 300);
+        }, 300);
+    }, 300);
 }
+
+// Helper function to check if we need a page break
+function checkPageBreak(yPos, requiredSpace, doc) {
+    if (yPos + requiredSpace > doc.internal.pageSize.getHeight() - 30) {
+        doc.addPage();
+        return 20; // Reset position for the new page
+    }
+    return yPos;
+}
+
+document.getElementById('dataInicio').addEventListener('change', function() {
+    const dataInicio = this.value;
+    const dataFim = document.getElementById('dataFim').value;
+    const filtroCategoria = document.getElementById('filtroCategoria').value;
+    const filtroStatus = document.getElementById('filtroStatus').value;
+    
+    if (dataFim && new Date(dataInicio) > new Date(dataFim)) {
+        alert('A data inicial não pode ser posterior à data final');
+        this.value = '';
+        return;
+    }
+    
+    if (dataInicio && dataFim) {
+        atualizarDashboard(filtroCategoria, filtroStatus, dataInicio, dataFim);
+    }
+});
+
+document.getElementById('dataFim').addEventListener('change', function() {
+    const dataInicio = document.getElementById('dataInicio').value;
+    const dataFim = this.value;
+    const filtroCategoria = document.getElementById('filtroCategoria').value;
+    const filtroStatus = document.getElementById('filtroStatus').value;
+    
+    if (dataInicio && new Date(dataInicio) > new Date(dataFim)) {
+        alert('A data final não pode ser anterior à data inicial');
+        this.value = '';
+        return;
+    }
+    
+    if (dataInicio && dataFim) {
+        atualizarDashboard(filtroCategoria, filtroStatus, dataInicio, dataFim);
+    }
+});
+
+// PDF generation button
+document.getElementById('gerarPDF').addEventListener('click', gerarRelatorioPDF);
 
 function addLogoutButton() {
     const navbarNav = document.getElementById('navbarNav');
@@ -848,41 +1101,4 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add logout button
         addLogoutButton();
     });
-    
-    document.getElementById('dataInicio').addEventListener('change', function() {
-        const dataInicio = this.value;
-        const dataFim = document.getElementById('dataFim').value;
-        const filtroCategoria = document.getElementById('filtroCategoria').value;
-        const filtroStatus = document.getElementById('filtroStatus').value;
-        
-        if (dataFim && new Date(dataInicio) > new Date(dataFim)) {
-            alert('A data inicial não pode ser posterior à data final');
-            this.value = '';
-            return;
-        }
-        
-        if (dataInicio && dataFim) {
-            atualizarDashboard(filtroCategoria, filtroStatus, dataInicio, dataFim);
-        }
-    });
-
-    document.getElementById('dataFim').addEventListener('change', function() {
-        const dataInicio = document.getElementById('dataInicio').value;
-        const dataFim = this.value;
-        const filtroCategoria = document.getElementById('filtroCategoria').value;
-        const filtroStatus = document.getElementById('filtroStatus').value;
-        
-        if (dataInicio && new Date(dataInicio) > new Date(dataFim)) {
-            alert('A data final não pode ser anterior à data inicial');
-            this.value = '';
-            return;
-        }
-        
-        if (dataInicio && dataFim) {
-            atualizarDashboard(filtroCategoria, filtroStatus, dataInicio, dataFim);
-        }
-    });
-
-    // PDF generation button
-    document.getElementById('gerarPDF').addEventListener('click', gerarRelatorioPDF);
 });
